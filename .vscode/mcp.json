@@ -4,7 +4,7 @@
       "command": "npx",
       "args": ["-y", "@xskill/server"],
       "env": {
-        "XSKILL_TOKEN": "your_actual_token_here"
+        "XSKILL_TOKEN": "sk-475e30a3df9067dbac9fd417dc9d526233f633515bc369eb"
       }
     }
   }
