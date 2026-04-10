@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "xskill-server": {
+      "command": "npx",
+      "args": ["-y", "@xskill/server"],
+      "env": {
+        "XSKILL_TOKEN": "your_actual_token_here"
+      }
+    }
+  }
+}
