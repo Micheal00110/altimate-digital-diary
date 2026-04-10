@@ -11,6 +11,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.102.1
         version: 2.102.1
+      autoskills:
+        specifier: ^0.2.7
+        version: 0.2.7
       dexie:
         specifier: ^4.4.2
         version: 4.4.2
@@ -703,6 +706,11 @@ packages:
     hasBin: true
     peerDependencies:
       postcss: ^8.1.0
+
+  autoskills@0.2.7:
+    resolution: {integrity: sha512-MznZU6kT1dsqL3Mb44ZB8HT6FuZXgWtjwjjCb+ejxZeVnLwgPGUSrhwtimgYPu64SOEhTMttiYbdvLwLfMlkhg==}
+    engines: {node: '>=22.6.0'}
+    hasBin: true
 
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
@@ -2090,6 +2098,8 @@ snapshots:
       picocolors: 1.1.1
       postcss: 8.5.9
       postcss-value-parser: 4.2.0
+
+  autoskills@0.2.7: {}
 
   balanced-match@1.0.2: {}
 
