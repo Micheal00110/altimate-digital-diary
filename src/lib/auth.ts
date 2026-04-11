@@ -47,7 +47,7 @@ export const authService = {
       let userId: string;
 
       // Try to get existing user with this email (with error handling)
-      let existingUsers: any[] = [];
+      let existingUsers: { id: string; user_type: string }[] = [];
       try {
         const result = await supabase
           .from('users')
@@ -178,7 +178,7 @@ export const authService = {
       let userId: string;
 
       // Try to get existing user with this email (with error handling)
-      let existingUsers: any[] = [];
+      let existingUsers: { id: string; user_type: string }[] = [];
       try {
         const result = await supabase
           .from('users')
@@ -418,7 +418,7 @@ export const authService = {
     parent?: Record<string, unknown>;
   }> {
     try {
-      const profiles: any = {};
+      const profiles: { teacher?: Record<string, unknown>; parent?: Record<string, unknown> } = {};
 
       const { data: teacherData } = await supabase
         .from('teacher_profiles')

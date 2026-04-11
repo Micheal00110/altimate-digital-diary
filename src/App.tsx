@@ -9,16 +9,17 @@ import { Announcements } from './components/Announcements';
 import { LoginPage } from './components/LoginPage';
 import { SignupPage } from './components/SignupPage';
 import { PasswordReset } from './components/PasswordReset';
+import { LandingPage } from './components/LandingPage';
 import { SyncStatusBar } from './components/SyncStatusBar';
 import { ConflictResolver } from './components/ConflictResolver';
 import { Bell, MessageCircle, BookOpen, LogOut } from 'lucide-react';
 
-type AuthView = 'login' | 'signup' | 'reset';
+type AuthView = 'landing' | 'login' | 'signup' | 'reset';
 type AppView = 'diary' | 'history' | 'messages' | 'announcements';
 
 function AppContent() {
   const { user, signOut, isLoading: authLoading } = useAuth();
-  const [authView, setAuthView] = useState<AuthView>('login');
+  const [authView, setAuthView] = useState<AuthView>('landing');
   const [profile, setProfile] = useState<ChildProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentView, setCurrentView] = useState<AppView>('diary');
@@ -68,35 +69,35 @@ function AppContent() {
     }, 10000);
     
     try {
-      // Check child profile for parents (corrected table name)
-      const { data, error } = await supabase.from('child_profiles').select('*').maybeSingle();
-      console.log('[App] child_profiles result:', { data, error });
-      
+      // Check child profile - get first one for MVP (legacy schema uses singular)
+      const { data, error } = await supabase.from('child_profile').select('*').maybeSingle();
+      console.log('[App] child_profile result:', { data, error });
+
       if (error && error.code !== 'PGRST116') throw error;
-      
+
       if (data) {
         setProfile(data);
         setDebugInfo('Child profile found');
       } else if (user?.role === 'teacher') {
-        // For teachers, check teacher profile
-        const { data: teacherData } = await supabase.from('teacher_profiles').select('*').eq('user_id', user.id).maybeSingle();
-        console.log('[App] teacher_profiles result:', teacherData);
-        if (teacherData) {
-          setProfile(teacherData as unknown as ChildProfile);
-          setDebugInfo('Teacher profile found');
-        } else {
-          setDebugInfo('No profile - need to create one');
-        }
+        // For teachers in legacy mode, create a placeholder profile
+        setProfile({
+          id: 0,
+          name: user.email?.split('@')[0] || 'Teacher',
+          grade: '',
+          school: '',
+          created_at: new Date().toISOString()
+        } as ChildProfile);
+        setDebugInfo('Teacher profile (legacy mode)');
       } else if (user?.role === 'parent') {
-        // For parents, check parent profile
-        const { data: parentData } = await supabase.from('parent_profiles').select('*').eq('user_id', user.id).maybeSingle();
-        console.log('[App] parent_profiles result:', parentData);
-        if (parentData) {
-          setProfile(parentData as unknown as ChildProfile);
-          setDebugInfo('Parent profile found');
-        } else {
-          setDebugInfo('No profile - need to create one');
-        }
+        // For parents in legacy mode, create a placeholder profile
+        setProfile({
+          id: 0,
+          name: user.email?.split('@')[0] || 'Parent',
+          grade: '',
+          school: '',
+          created_at: new Date().toISOString()
+        } as ChildProfile);
+        setDebugInfo('Parent profile (legacy mode)');
       }
     } catch (error: unknown) {
       const err = error as { message?: string };
@@ -144,6 +145,12 @@ function AppContent() {
   if (!user) {
     return (
       <>
+        {authView === 'landing' && (
+          <LandingPage
+            onNavigateToLogin={() => setAuthView('login')}
+            onNavigateToSignup={() => setAuthView('signup')}
+          />
+        )}
         {authView === 'login' && (
           <LoginPage
             onLoginSuccess={() => checkProfile()}
