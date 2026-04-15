@@ -24,9 +24,16 @@ class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean,
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{padding: '20px', color: 'red', fontFamily: 'sans-serif'}}>
-          <h1>Something went wrong</h1>
-          <pre>{this.state.error?.message || 'Unknown error'}</pre>
+        <div style={{padding: '40px', color: '#b91c1c', fontFamily: 'sans-serif', maxWidth: '600px', margin: '0 auto'}}>
+          <h1 style={{fontSize: '24px', marginBottom: '16px'}}>Something went wrong</h1>
+          <p style={{marginBottom: '16px'}}>The application encountered an unexpected error. This might be due to a missing component, or invalid data.</p>
+          <pre style={{background: '#fee2e2', padding: '16px', borderRadius: '8px', overflowX: 'auto', marginBottom: '24px', fontSize: '14px'}}>{this.state.error?.message || 'Unknown error'}</pre>
+          <button 
+            onClick={() => window.location.reload()}
+            style={{background: '#b91c1c', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'}}
+          >
+            Refresh Page
+          </button>
         </div>
       );
     }

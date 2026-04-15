@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { authService } from '../lib/auth';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { useState, useContext } from 'react';
+import { AuthContext } from '../contexts/AuthContext';
+import { Mail, Lock, Eye, EyeOff, Sparkles } from 'lucide-react';
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
@@ -9,25 +9,33 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onLoginSuccess, onNavigateToSignup, onNavigateToResetPassword }: LoginPageProps) {
+  const auth = useContext(AuthContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const handleGuestLogin = () => {
+    if (auth) {
+      auth.signInAsGuest('parent');
+      onLoginSuccess();
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth) return;
+    
     setError('');
     setIsLoading(true);
 
-    console.log('[Login] Attempting login for:', email);
-    const result = await authService.signIn(email, password);
-    console.log('[Login] Result:', result);
+    const result = await auth.signIn(email, password);
 
-    if (result.success) {
+    if (result && !result.error) {
       onLoginSuccess();
     } else {
-      setError(result.error || 'Login failed');
+      setError(result?.error?.message || 'Login failed');
     }
 
     setIsLoading(false);
@@ -106,6 +114,24 @@ export function LoginPage({ onLoginSuccess, onNavigateToSignup, onNavigateToRese
             className="w-full py-3 px-4 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? 'Signing in...' : 'Sign In'}
+          </button>
+          
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-200"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Or continue as</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGuestLogin}
+            className="w-full py-3 px-4 bg-white border-2 border-amber-600 text-amber-600 hover:bg-amber-50 font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            <Sparkles className="w-5 h-5" />
+            Guest Mode (Instant Access)
           </button>
         </form>
 

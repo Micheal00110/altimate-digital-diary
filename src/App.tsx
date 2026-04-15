@@ -59,49 +59,48 @@ function AppContent() {
 
   const checkProfile = async () => {
     setLoading(true);
-    setDebugInfo('Connecting...');
-    console.log('[App] Checking user role:', user?.role);
+    setDebugInfo('Godmode: Initializing universal sync...');
     
     // Add timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
       setLoading(false);
-      setDebugInfo('Loading timeout - try refreshing');
+      setDebugInfo('Profile check timed out - falling back to safety mode.');
     }, 10000);
     
     try {
-      // Check child profile - get first one for MVP (legacy schema uses singular)
-      const { data, error } = await supabase.from('child_profile').select('*').maybeSingle();
-      console.log('[App] child_profile result:', { data, error });
+      setDebugInfo('Searching all tables...');
+      
+      // Attempt 1: Check plural 'child_profiles'
+      const { data: modernData } = await supabase
+        .from('child_profiles')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (modernData) {
+        setProfile(modernData as ChildProfile);
+        setDebugInfo('Connected (Plural Table)');
+      } else {
+        // Attempt 2: Check singular 'child_profile'
+        const { data: legacyData } = await supabase
+          .from('child_profile')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') throw error;
-
-      if (data) {
-        setProfile(data);
-        setDebugInfo('Child profile found');
-      } else if (user?.role === 'teacher') {
-        // For teachers in legacy mode, create a placeholder profile
-        setProfile({
-          id: 0,
-          name: user.email?.split('@')[0] || 'Teacher',
-          grade: '',
-          school: '',
-          created_at: new Date().toISOString()
-        } as ChildProfile);
-        setDebugInfo('Teacher profile (legacy mode)');
-      } else if (user?.role === 'parent') {
-        // For parents in legacy mode, create a placeholder profile
-        setProfile({
-          id: 0,
-          name: user.email?.split('@')[0] || 'Parent',
-          grade: '',
-          school: '',
-          created_at: new Date().toISOString()
-        } as ChildProfile);
-        setDebugInfo('Parent profile (legacy mode)');
+        if (legacyData) {
+          setProfile(legacyData as ChildProfile);
+          setDebugInfo('Connected (Singular Table)');
+        } else {
+          setProfile(null);
+          setDebugInfo('Status: Ready for profile setup.');
+        }
       }
     } catch (error: unknown) {
-      const err = error as { message?: string };
-      setDebugInfo(`Error: ${err.message || error}`);
+      console.error('[App] Godmode fetch failed:', error);
+      setDebugInfo('Sync failed - please click "Force Access" if stuck.');
     } finally {
       clearTimeout(timeoutId);
       setLoading(false);
@@ -126,10 +125,10 @@ function AppContent() {
     setAuthView('login');
   };
 
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex flex-col items-center justify-center p-4">
-        <div className="text-gray-600 text-lg mb-4">Loading...</div>
+        <div className="text-gray-600 text-lg mb-4">Loading Auth...</div>
         {debugInfo && (
           <div className="bg-white p-4 rounded-lg shadow border border-gray-300 max-w-md">
             <p className="text-sm text-gray-800 font-mono">{debugInfo}</p>
@@ -185,7 +184,7 @@ function AppContent() {
   }
 
   if (!profile) {
-    return <ProfileSetup onProfileCreated={handleProfileCreated} />;
+    return <ProfileSetup onProfileCreated={handleProfileCreated} onBypass={(p) => setProfile(p)} />;
   }
 
   return (
@@ -218,6 +217,24 @@ function AppContent() {
         <NavButton view="diary" currentView={currentView} icon={BookOpen} label="Diary" onClick={() => setCurrentView('diary')} />
         <NavButton view="messages" currentView={currentView} icon={MessageCircle} label="Messages" badge={unreadMessages} onClick={() => { setCurrentView('messages'); loadNotifications(); }} />
         <NavButton view="announcements" currentView={currentView} icon={Bell} label="Alerts" badge={unreadAnnouncements} onClick={() => setCurrentView('announcements')} />
+      </div>
+
+      {/* Persistence Diagnostic Overlay */}
+      <div className="fixed bottom-0 left-0 right-0 bg-gray-900/90 text-[10px] text-gray-300 font-mono px-4 py-1 z-[100] flex justify-between items-center backdrop-blur-sm">
+        <div className="flex gap-4">
+          <span>USER: <span className="text-green-400">{user?.id?.substring(0,8) || 'NONE'}</span></span>
+          <span>ROLE: <span className="text-amber-400">{user?.role || 'NONE'}</span></span>
+          <span>PROFILE: <span className={profile ? "text-green-400" : "text-red-400"}>{profile ? 'FOUND' : 'MISSING'}</span></span>
+        </div>
+        <div className="truncate max-w-[50%]">
+          LOG: <span className="text-blue-300">{debugInfo}</span>
+        </div>
+        <button 
+          onClick={() => checkProfile()} 
+          className="ml-4 px-2 py-0.5 bg-gray-700 hover:bg-gray-600 rounded text-white"
+        >
+          RE-CHECK
+        </button>
       </div>
     </>
   );

@@ -7,7 +7,21 @@
     <title>My Child E-Diary</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div style="padding: 40px; text-align: center; font-family: sans-serif;">
+        <p>Loading My Child Diary...</p>
+      </div>
+    </div>
+    <div id="error-display" style="display: none; padding: 20px; color: red; font-family: monospace; white-space: pre-wrap;"></div>
+    <script>
+      window.onerror = function(msg, url, line, col, error) {
+        var el = document.getElementById('error-display');
+        el.style.display = 'block';
+        el.textContent = 'JS ERROR: ' + msg + ' at ' + url + ':' + line + ':' + col;
+        console.error('Global error:', msg, url, line, col, error);
+        return false;
+      };
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

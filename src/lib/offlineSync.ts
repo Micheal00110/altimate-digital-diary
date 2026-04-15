@@ -30,7 +30,7 @@ export const offlineSync = {
   },
 
   async downloadProfiles(): Promise<ChildProfile[]> {
-    const { data, error } = await supabase.from('child_profile').select('*');
+    const { data, error } = await supabase.from('child_profiles').select('*');
     if (error) throw error;
     return data as ChildProfile[];
   },

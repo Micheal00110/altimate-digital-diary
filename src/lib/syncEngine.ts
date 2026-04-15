@@ -111,8 +111,9 @@ class SyncEngine {
       case 'announcements':
         await this.processAnnouncement(operation, data);
         break;
+      case 'child_profiles':
       case 'child_profile':
-        await this.processChildProfile(operation, data);
+        await this.processChildProfile(operation, data, table);
         break;
       default:
         console.warn(`Unknown table: ${table}`);
@@ -170,9 +171,9 @@ class SyncEngine {
     }
   }
 
-  private async processChildProfile(operation: string, data: Record<string, unknown>): Promise<void> {
+  private async processChildProfile(operation: string, data: Record<string, unknown>, table: string): Promise<void> {
     if (operation === 'UPDATE') {
-      const { error } = await supabase.from('child_profile').update(data).eq('id', data.id);
+      const { error } = await supabase.from(table).update(data).eq('id', data.id);
       if (error) throw error;
     }
   }

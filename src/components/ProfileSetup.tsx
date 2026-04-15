@@ -1,47 +1,60 @@
 import { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, ChildProfile } from '../lib/supabase';
 import { BookOpen } from 'lucide-react';
 
 interface ProfileSetupProps {
   onProfileCreated: () => void;
+  onBypass?: (profile: ChildProfile) => void;
 }
 
-export function ProfileSetup({ onProfileCreated }: ProfileSetupProps) {
+export function ProfileSetup({ onProfileCreated, onBypass }: ProfileSetupProps) {
   const [name, setName] = useState('');
   const [grade, setGrade] = useState('');
   const [school, setSchool] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const handleBypass = () => {
+    if (onBypass) {
+      onBypass({
+        id: 'guest-' + Date.now(),
+        name: 'Guest Profile',
+        grade: 'Not Set',
+        school: 'Not Set',
+        created_at: new Date().toISOString()
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    console.log('[ProfileSetup] Creating profile:', { name, grade, school });
-
     try {
+      setError('Inserting into database...');
       const { data, error: supabaseError } = await supabase
-        .from('child_profile')
+        .from('child_profiles')
         .insert([{ name, grade, school }])
-        .select();
-
-      console.log('[ProfileSetup] Response:', { data, error: supabaseError });
+        .select()
+        .single();
 
       if (supabaseError) {
-        console.error('[ProfileSetup] Supabase error:', supabaseError);
-        if (supabaseError.message.includes('relation') && supabaseError.message.includes('does not exist')) {
-          setError('Database not set up. Please run the SQL migration in Supabase dashboard.');
-        } else {
-          setError(supabaseError.message);
-        }
+        setError(`Database Error: ${supabaseError.message}`);
         return;
       }
 
-      onProfileCreated();
-    } catch (err) {
-      console.error('[ProfileSetup] Error:', err);
-      setError('Failed to create profile. Please try again.');
+      setError('Profile created! Accessing Dashboard...');
+      
+      // GODMODE: Direct Injection
+      if (onBypass && data) {
+        onBypass(data as ChildProfile);
+      } else {
+        onProfileCreated();
+      }
+      
+    } catch (err: any) {
+      setError(`Crash occurred: ${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -115,11 +128,29 @@ export function ProfileSetup({ onProfileCreated }: ProfileSetupProps) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 text-white font-semibold py-4 px-6 rounded-lg transition-colors text-lg shadow-md"
+            className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 text-white font-semibold py-4 px-6 rounded-lg transition-colors text-lg shadow-md mb-4"
           >
             {loading ? 'Creating...' : 'Continue'}
           </button>
+          
+          <button
+            type="button"
+            onClick={handleBypass}
+            className="w-full text-amber-700 hover:text-amber-900 text-sm font-medium underline transition-colors"
+          >
+            Skip Setup (Enter as Guest)
+          </button>
         </form>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 bg-gray-900/90 text-[10px] text-gray-300 font-mono px-4 py-1 z-[100] flex justify-between items-center backdrop-blur-sm">
+        <div className="flex gap-4">
+           <span>DB_TARGET: <span className="text-blue-400">child_profiles</span></span>
+           <span>STATUS: <span className="text-amber-400">{loading ? 'PROCESSING' : 'IDLE'}</span></span>
+        </div>
+        <div className="truncate max-w-[50%] text-right">
+          LAST_ACT: <span className="text-blue-300">{error || 'READY'}</span>
+        </div>
       </div>
     </div>
   );

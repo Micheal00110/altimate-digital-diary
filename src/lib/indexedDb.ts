@@ -60,7 +60,7 @@ export interface SyncQueueItem {
 }
 
 class ChildEdiaryDB extends Dexie {
-  child_profile!: Table<ChildProfile>;
+  child_profiles!: Table<ChildProfile>;
   diary_entries!: Table<DiaryEntry>;
   messages!: Table<Message>;
   announcements!: Table<Announcement>;
@@ -68,8 +68,8 @@ class ChildEdiaryDB extends Dexie {
 
   constructor() {
     super('child-ediary-offline');
-    this.version(1).stores({
-      child_profile: 'id',
+    this.version(2).stores({
+      child_profiles: 'id',
       diary_entries: 'id, child_id, date, sync_status',
       messages: 'id, child_id, is_read, sender_type, sync_status',
       announcements: 'id, created_at, sync_status',
@@ -80,17 +80,27 @@ class ChildEdiaryDB extends Dexie {
 
 export const db = new ChildEdiaryDB();
 
+// Helper to safely execute IndexedDB operations
+async function safeDbOp<T>(operation: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await operation();
+  } catch (err) {
+    console.error('[IndexedDB Error] Fallback triggered:', err);
+    return fallback;
+  }
+}
+
 export const indexedDb = {
   async getChildProfile(id: string): Promise<ChildProfile | undefined> {
-    return db.child_profile.get(id);
+    return safeDbOp(() => db.child_profiles.get(id), undefined);
   },
 
   async getAllChildProfiles(): Promise<ChildProfile[]> {
-    return db.child_profile.toArray();
+    return db.child_profiles.toArray();
   },
 
   async saveChildProfile(profile: ChildProfile): Promise<string> {
-    return db.child_profile.put(profile);
+    return db.child_profiles.put(profile);
   },
 
   async getDiaryEntry(id: string): Promise<DiaryEntry | undefined> {

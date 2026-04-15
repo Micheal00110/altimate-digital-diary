@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { indexedDb, DiaryEntry, Message, Announcement, ChildProfile } from '../lib/indexedDb';
 
 interface UseOfflineDataOptions {
-  table: 'diary_entries' | 'messages' | 'announcements' | 'child_profile';
+  table: 'diary_entries' | 'messages' | 'announcements' | 'child_profiles';
   childId?: string;
 }
 
@@ -43,7 +43,7 @@ export function useOfflineData<T extends { id: string }>(options: UseOfflineData
         case 'announcements':
           result = await indexedDb.getAllAnnouncements();
           break;
-        case 'child_profile':
+        case 'child_profiles':
           if (options.childId) {
             result = await indexedDb.getChildProfile(options.childId);
             result = result ? [result] : [];
@@ -81,6 +81,6 @@ export function useOfflineAnnouncements() {
 }
 
 export function useOfflineChildProfile(childId: string) {
-  const { data } = useOfflineData<ChildProfile>({ table: 'child_profile', childId });
+  const { data } = useOfflineData<ChildProfile>({ table: 'child_profiles', childId });
   return data?.[0] || null;
 }

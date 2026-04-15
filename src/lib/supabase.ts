@@ -7,13 +7,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('[Supabase] Missing environment variables: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY');
 }
 
-export const supabase = createClient(
-  supabaseUrl || 'http://placeholder-url.supabase.co',
-  supabaseAnonKey || 'placeholder-key'
-);
+export const supabase = (supabaseUrl && supabaseAnonKey) 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : new Proxy({} as any, {
+      get(_target, prop) {
+        console.error('[Supabase Error] Accessing supabase client without configuration:', String(prop));
+        return () => Promise.reject(new Error('Supabase is not configured properly in .env'));
+      }
+    });
 
 export interface ChildProfile {
-  id: number;
+  id: number | string;
   name: string;
   grade: string;
   school: string;
@@ -21,7 +25,7 @@ export interface ChildProfile {
 }
 
 export interface DiaryEntry {
-  id: number;
+  id: number | string;
   date: string;
   subject: string;
   homework: string;
@@ -31,7 +35,7 @@ export interface DiaryEntry {
 }
 
 export interface Message {
-  id: number;
+  id: number | string;
   sender_type: 'parent' | 'teacher';
   sender_name: string;
   content: string;
@@ -40,7 +44,7 @@ export interface Message {
 }
 
 export interface Announcement {
-  id: number;
+  id: number | string;
   title: string;
   content: string;
   priority: 'normal' | 'important' | 'urgent';

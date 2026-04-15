@@ -21,6 +21,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, role: UserRole) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
+  signInAsGuest: (role: UserRole) => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -115,6 +116,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
+  const signInAsGuest = useCallback((role: UserRole) => {
+    const guestUser: AuthUser = {
+      id: 'guest-' + Date.now(),
+      email: 'guest@example.com',
+      name: 'Guest ' + (role.charAt(0).toUpperCase() + role.slice(1)),
+      role: role,
+      profile: { guest: true }
+    };
+    
+    setUser(guestUser);
+    localStorage.setItem('diary_guest_user', JSON.stringify(guestUser));
+    setIsLoading(false);
+  }, []);
+
   useEffect(() => {
     // Add timeout to prevent infinite loading
     const initTimeout = setTimeout(() => {
@@ -137,6 +152,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsLoading(false);
       clearTimeout(initTimeout);
     });
+
+    // Check for guest login
+    const savedGuest = localStorage.getItem('diary_guest_user');
+    if (savedGuest) {
+      try {
+        const guestData = JSON.parse(savedGuest);
+        setUser(guestData);
+        setIsLoading(false);
+        clearTimeout(initTimeout);
+        return; // Skip server check if guest is active
+      } catch (e) {
+        localStorage.removeItem('diary_guest_user');
+      }
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       try {
@@ -203,7 +232,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signIn,
     signUp,
     signOut,
-    resetPassword
+    resetPassword,
+    signInAsGuest
   };
 
   return (
