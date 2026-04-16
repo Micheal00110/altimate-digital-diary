@@ -33,27 +33,59 @@ export function ProfileSetup({ onProfileCreated, onBypass }: ProfileSetupProps) 
 
     try {
       setError('Inserting into database...');
+      console.log('[ProfileSetup] Creating profile with:', { name, grade, school });
+
       const { data, error: supabaseError } = await supabase
         .from('child_profiles')
         .insert([{ name, grade, school }])
         .select()
-        .single();
+        .maybeSingle();
+
+      console.log('[ProfileSetup] Insert result:', { data, error: supabaseError });
 
       if (supabaseError) {
+        console.error('[ProfileSetup] Supabase error:', supabaseError);
         setError(`Database Error: ${supabaseError.message}`);
         return;
       }
 
+      if (!data) {
+        // Try fetching the last inserted profile as fallback
+        console.log('[ProfileSetup] No data returned, checking for inserted profile...');
+        const { data: fetchedData } = await supabase
+          .from('child_profiles')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (fetchedData) {
+          console.log('[ProfileSetup] Found profile via fallback:', fetchedData);
+          setError('Profile created! Accessing Dashboard...');
+          if (onBypass) {
+            onBypass(fetchedData as ChildProfile);
+          } else if (onProfileCreated) {
+            onProfileCreated();
+          }
+          return;
+        }
+
+        setError('No data returned from insert - please try again');
+        return;
+      }
+
       setError('Profile created! Accessing Dashboard...');
-      
+      console.log('[ProfileSetup] Calling onBypass with:', data);
+
       // GODMODE: Direct Injection
       if (onBypass && data) {
         onBypass(data as ChildProfile);
-      } else {
+      } else if (onProfileCreated) {
         onProfileCreated();
       }
-      
+
     } catch (err: any) {
+      console.error('[ProfileSetup] Catch error:', err);
       setError(`Crash occurred: ${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);

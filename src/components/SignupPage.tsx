@@ -12,9 +12,11 @@ interface SignupPageProps {
 export function SignupPage({ onSignupSuccess, onNavigateToLogin }: SignupPageProps) {
   const auth = useContext(AuthContext);
   const [userType, setUserType] = useState<'teacher' | 'parent'>('parent');
+  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
     school_name: '',
@@ -34,10 +36,17 @@ export function SignupPage({ onSignupSuccess, onNavigateToLogin }: SignupPagePro
   const [showPasswordGenerator, setShowPasswordGenerator] = useState(false);
   const [passwordGeneratorType, setPasswordGeneratorType] = useState<'secure' | 'memorable'>('secure');
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
+  const [emailExists, setEmailExists] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+
+    // Check if email exists when user finishes typing it
+    if (name === 'email' && value.includes('@')) {
+      const exists = await authService.checkEmailExists(value);
+      setEmailExists(exists);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -54,10 +63,23 @@ export function SignupPage({ onSignupSuccess, onNavigateToLogin }: SignupPagePro
       return;
     }
 
-    console.log('[Signup] Starting signup for:', formData.email, 'as', userType);
+    if (loginMethod === 'email' && !formData.email) {
+      setError('Email is required');
+      return;
+    }
+    if (loginMethod === 'phone' && !formData.phone) {
+      setError('Phone number is required');
+      return;
+    }
+
+    console.log('[Signup] Starting signup for:', loginMethod === 'email' ? formData.email : formData.phone, 'as', userType);
     setIsLoading(true);
 
-    const baseData = { name: formData.name, email: formData.email };
+    const baseData = {
+      name: formData.name,
+      email: loginMethod === 'email' ? formData.email : undefined,
+      phone: loginMethod === 'phone' ? formData.phone : undefined
+    };
 
     let result;
     if (userType === 'teacher') {
@@ -205,19 +227,66 @@ export function SignupPage({ onSignupSuccess, onNavigateToLogin }: SignupPagePro
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
-                placeholder="you@example.com"
-                required
-              />
+            <label className="block text-sm font-medium text-gray-700 mb-2">Login with</label>
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setLoginMethod('email')}
+                className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                  loginMethod === 'email'
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <Mail className="w-4 h-4" />
+                Email
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoginMethod('phone')}
+                className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                  loginMethod === 'phone'
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <Phone className="w-4 h-4" />
+                Phone
+              </button>
             </div>
+
+            {loginMethod === 'email' ? (
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  name="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className={`w-full pl-10 pr-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-amber-500 ${emailExists ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                  placeholder="you@example.com"
+                  required={loginMethod === 'email'}
+                />
+              </div>
+            ) : (
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  name="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
+                  placeholder="+1 (555) 000-0000"
+                  required={loginMethod === 'phone'}
+                />
+              </div>
+            )}
+            {loginMethod === 'email' && emailExists && (
+              <p className="mt-1 text-sm text-red-600">
+                An account with this email exists. <button type="button" onClick={onNavigateToLogin} className="underline font-medium">Sign in instead</button>
+              </p>
+            )}
           </div>
 
           <div>

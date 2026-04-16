@@ -3,47 +3,50 @@ import Dexie, { Table } from 'dexie';
 export interface ChildProfile {
   id: string;
   name: string;
-  birth_date: string;
-  parent_id: string;
+  birth_date?: string;
+  grade?: string;
+  school?: string;
+  parent_id?: string;
   teacher_id?: string;
   photo_url?: string;
+  user_id?: string;
   created_at: string;
   updated_at: string;
 }
 
 export interface DiaryEntry {
-  id: string;
-  child_id: string;
+  id: string | number;
+  child_id?: string;
   date: string;
-  morning_comment?: string;
-  afternoon_comment?: string;
-  activities?: string;
-  meals?: string;
-  naps?: string;
-  mood?: string;
-  teacher_id: string;
+  subject?: string;
+  homework?: string;
+  teacher_comment?: string;
+  signed?: boolean;
+  teacher_id?: string;
   parent_signature?: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
   sync_status?: 'synced' | 'pending' | 'conflict';
 }
 
 export interface Message {
-  id: string;
-  child_id: string;
-  sender_id: string;
-  sender_type: 'teacher' | 'parent';
+  id: string | number;
+  child_id?: string;
+  sender_id?: string;
+  sender_type?: 'teacher' | 'parent';
+  sender_name?: string;
   content: string;
-  is_read: boolean;
+  is_read?: boolean;
   created_at: string;
   sync_status?: 'synced' | 'pending' | 'conflict';
 }
 
 export interface Announcement {
-  id: string;
-  title: string;
+  id: string | number;
+  title?: string;
   content: string;
-  teacher_id: string;
+  priority?: 'normal' | 'important' | 'urgent';
+  teacher_id?: string;
   created_at: string;
   sync_status?: 'synced' | 'pending' | 'conflict';
 }

@@ -17,7 +17,7 @@ interface AuthContextType {
   user: AuthUser | null;
   session: Session | null;
   isLoading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (identifier: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, role: UserRole) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
@@ -44,27 +44,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
         .from('users')
         .select('*')
         .eq('id', sessionUser.id)
-        .single();
+        .maybeSingle();
 
       if (userError) {
-        console.warn('[AuthContext] User not found in users table, creating:', userError.message);
-        
-        // Create user record in our users table
+        console.warn('[AuthContext] Users table query error:', userError.message);
+        // Fall through to create user
+      }
+
+      // If user not found in our users table, create them
+      if (!userData) {
+        console.log('[AuthContext] User not in users table, creating...');
         const userType = sessionUser.user_metadata?.user_type || 'parent';
         const name = sessionUser.user_metadata?.name || sessionUser.email?.split('@')[0] || 'User';
-        
+
         const { error: insertError } = await supabase.from('users').insert({
           id: sessionUser.id,
           email: sessionUser.email,
           user_type: userType,
           name: name
         });
-        
-        if (insertError && insertError.code !== '23505') {
+
+        if (insertError) {
           console.error('[AuthContext] Failed to create user record:', insertError);
+          // Continue anyway with basic user info
         }
-        
-        // Continue with default role
+
         return {
           id: sessionUser.id,
           email: sessionUser.email || '',
@@ -74,27 +78,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
         };
       }
 
-      if (!userData) return null;
-
       const role = userData.user_type as UserRole;
       let profile: Record<string, unknown> | undefined;
 
-      console.log('[AuthContext] User found, role:', role);
+      console.log('[AuthContext] User found in DB, role:', role);
 
       if (role === 'teacher') {
         const { data: teacherProfile } = await supabase
           .from('teacher_profiles')
           .select('*')
           .eq('user_id', sessionUser.id)
-          .single();
-        profile = teacherProfile;
+          .maybeSingle();
+        profile = teacherProfile || undefined;
       } else if (role === 'parent') {
         const { data: parentProfile } = await supabase
           .from('parent_profiles')
           .select('*')
           .eq('user_id', sessionUser.id)
-          .single();
-        profile = parentProfile;
+          .maybeSingle();
+        profile = parentProfile || undefined;
       }
 
       return {
@@ -106,6 +108,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       };
     } catch (err) {
       console.error('[AuthContext] Error loading profile:', err);
+      // Return basic user info on error
       return {
         id: sessionUser.id,
         email: sessionUser.email || '',
@@ -131,67 +134,81 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, []);
 
   useEffect(() => {
-    // Add timeout to prevent infinite loading
-    const initTimeout = setTimeout(() => {
-      if (isLoading) {
-        console.warn('[AuthContext] Initialization timeout - forcing ready state');
-        setIsLoading(false);
-      }
-    }, 5000);
+    let isMounted = true;
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        const userProfile = await loadUserProfile(session.user);
-        setUser(userProfile);
-      }
-      setIsLoading(false);
-      clearTimeout(initTimeout);
-    }).catch((err) => {
-      console.error('[AuthContext] Session check failed:', err);
-      setIsLoading(false);
-      clearTimeout(initTimeout);
-    });
-
-    // Check for guest login
+    // Check for guest login first (before any async ops)
     const savedGuest = localStorage.getItem('diary_guest_user');
     if (savedGuest) {
       try {
         const guestData = JSON.parse(savedGuest);
         setUser(guestData);
         setIsLoading(false);
-        clearTimeout(initTimeout);
         return; // Skip server check if guest is active
       } catch (e) {
         localStorage.removeItem('diary_guest_user');
       }
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // Add timeout to prevent infinite loading
+    const initTimeout = setTimeout(() => {
+      if (isMounted && isLoading) {
+        console.warn('[AuthContext] Initialization timeout - forcing ready state');
+        setIsLoading(false);
+      }
+    }, 8000);
+
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+
+        setSession(session);
+        if (session?.user) {
+          const userProfile = await loadUserProfile(session.user);
+          if (isMounted) {
+            setUser(userProfile);
+          }
+        }
+      } catch (err) {
+        console.error('[AuthContext] Session check failed:', err);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+        clearTimeout(initTimeout);
+      }
+    };
+
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event: string, session: any) => {
+      if (!isMounted) return;
       try {
         setSession(session);
         if (session?.user) {
           const userProfile = await loadUserProfile(session.user);
-          setUser(userProfile);
+          if (isMounted) {
+            setUser(userProfile);
+          }
         } else {
-          setUser(null);
+          if (isMounted) setUser(null);
         }
       } catch (err) {
         console.error('[AuthContext] Auth state change error:', err);
       } finally {
-        setIsLoading(false);
-        clearTimeout(initTimeout);
+        if (isMounted) setIsLoading(false);
       }
     });
 
     return () => {
-      subscription.unsubscribe();
+      isMounted = false;
       clearTimeout(initTimeout);
+      subscription.unsubscribe();
     };
   }, [loadUserProfile]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const result = await authService.signIn(email, password);
+  const signIn = useCallback(async (identifier: string, password: string) => {
+    const result = await authService.signIn(identifier, password);
     return { error: result.error ? new Error(result.error) : null };
   }, []);
 

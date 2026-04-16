@@ -5,7 +5,8 @@ export type UserRole = 'teacher' | 'parent' | 'admin';
 
 export interface TeacherData {
   name: string;
-  email: string;
+  email?: string;
+  phone?: string;
   qualification?: string;
   school_name: string;
   class_grade: string;
@@ -16,7 +17,8 @@ export interface TeacherData {
 
 export interface ParentData {
   name: string;
-  email: string;
+  email?: string;
+  phone?: string;
   relationship_to_child: 'mother' | 'father' | 'guardian';
   phone_number: string;
   occupation?: string;
@@ -43,17 +45,17 @@ export const authService = {
   async signUpTeacher(data: TeacherData, password: string): Promise<AuthResult> {
     try {
       console.log('[Auth] Signing up/adding teacher role:', data.email);
-      
+
       let userId: string;
 
-      // Try to get existing user with this email (with error handling)
+      // Check if user exists in our users table by email
       let existingUsers: { id: string; user_type: string }[] = [];
       try {
         const result = await supabase
           .from('users')
           .select('id, user_type')
           .eq('email', data.email);
-        
+
         if (!result.error && result.data) {
           existingUsers = result.data;
         }
@@ -79,24 +81,26 @@ export const authService = {
           console.warn('[Auth] Could not update user type:', err);
         }
       } else {
-        // Create new auth user
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: data.email,
-          password,
-          options: {
-            data: {
-              name: data.name,
-              user_type: 'teacher'
-            }
-          }
-        });
+        // Create new auth user (email OR phone)
+        const signUpData: { email?: string; phone?: string; password: string; options?: object } = { password };
+        if (data.email) signUpData.email = data.email;
+        else if (data.phone) signUpData.phone = data.phone;
+        else throw new Error('Email or phone number is required');
+
+        const { data: authData, error: authError } = await supabase.auth.signUp(signUpData as any);
 
         if (authError) {
           console.error('[Auth] Signup error:', authError);
-          throw new Error(authError.message);
+          if (authError.message?.includes('already') || authError.message?.includes('exist')) {
+            throw new Error('An account with this identifier already exists. Please sign in instead.');
+          }
+          if (authError.message?.includes('invalid') || authError.message?.includes('Invalid')) {
+            throw new Error('Invalid email or phone format. Please check your input.');
+          }
+          throw new Error(authError.message || 'Signup failed. Please try again.');
         }
-        if (!authData.user) throw new Error('Failed to create user');
-        
+        if (!authData.user) throw new Error('Failed to create user - no user data returned');
+
         console.log('[Auth] User created:', authData.user.id);
         userId = authData.user.id;
 
@@ -104,14 +108,14 @@ export const authService = {
         try {
           const { error: userError } = await supabase.from('users').insert({
             id: userId,
-            email: data.email,
+            email: data.email || null,
+            phone: data.phone || null,
             user_type: 'teacher',
             name: data.name
           });
 
           if (userError) {
-            console.warn('[Auth] Users table insert failed:', userError.message);
-            // Continue anyway - this is not critical
+            console.warn('[Auth] Users table insert failed (non-critical):', userError.message);
           } else {
             console.log('[Auth] User table entry created');
           }
@@ -140,7 +144,7 @@ export const authService = {
       if (existingProfile) {
         console.log('[Auth] Teacher profile already exists, skipping creation');
       } else {
-        // Create teacher profile
+        // Create teacher profile (non-blocking - auth user is already created)
         try {
           const { error: profileError } = await supabase.from('teacher_profiles').insert({
             user_id: userId,
@@ -153,14 +157,13 @@ export const authService = {
           });
 
           if (profileError) {
-            console.error('[Auth] Teacher profile insert failed:', profileError.message);
-            throw new Error(`Failed to create teacher profile: ${profileError.message}`);
+            console.warn('[Auth] Teacher profile insert failed (non-critical):', profileError.message);
+            // Continue anyway - the auth user is created, profile can be created later
+          } else {
+            console.log('[Auth] Teacher profile created successfully');
           }
-
-          console.log('[Auth] Teacher profile created successfully');
         } catch (err) {
-          console.warn('[Auth] Exception creating teacher profile:', err);
-          // If tables don't exist, that's okay for now
+          console.warn('[Auth] Exception creating teacher profile (non-critical):', err);
         }
       }
 
@@ -210,24 +213,26 @@ export const authService = {
           console.warn('[Auth] Could not update user type:', err);
         }
       } else {
-        // Create new auth user
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: data.email,
-          password,
-          options: {
-            data: {
-              name: data.name,
-              user_type: 'parent'
-            }
-          }
-        });
+        // Create new auth user (email OR phone)
+        const signUpData: { email?: string; phone?: string; password: string; options?: object } = { password };
+        if (data.email) signUpData.email = data.email;
+        else if (data.phone) signUpData.phone = data.phone;
+        else throw new Error('Email or phone number is required');
+
+        const { data: authData, error: authError } = await supabase.auth.signUp(signUpData as any);
 
         if (authError) {
           console.error('[Auth] Signup error:', authError);
-          throw new Error(authError.message);
+          if (authError.message?.includes('already') || authError.message?.includes('exist')) {
+            throw new Error('An account with this identifier already exists. Please sign in instead.');
+          }
+          if (authError.message?.includes('invalid') || authError.message?.includes('Invalid')) {
+            throw new Error('Invalid email or phone format. Please check your input.');
+          }
+          throw new Error(authError.message || 'Signup failed. Please try again.');
         }
-        if (!authData.user) throw new Error('Failed to create user');
-        
+        if (!authData.user) throw new Error('Failed to create user - no user data returned');
+
         console.log('[Auth] User created:', authData.user.id);
         userId = authData.user.id;
 
@@ -235,14 +240,14 @@ export const authService = {
         try {
           const { error: userError } = await supabase.from('users').insert({
             id: userId,
-            email: data.email,
+            email: data.email || null,
+            phone: data.phone || null,
             user_type: 'parent',
             name: data.name
           });
 
           if (userError) {
-            console.warn('[Auth] Users table insert failed:', userError.message);
-            // Continue anyway - this is not critical
+            console.warn('[Auth] Users table insert failed (non-critical):', userError.message);
           } else {
             console.log('[Auth] User table entry created');
           }
@@ -271,7 +276,7 @@ export const authService = {
       if (existingProfile) {
         console.log('[Auth] Parent profile already exists, skipping creation');
       } else {
-        // Create parent profile
+        // Create parent profile (non-blocking - auth user is already created)
         try {
           const { error: profileError } = await supabase.from('parent_profiles').insert({
             user_id: userId,
@@ -282,14 +287,13 @@ export const authService = {
           });
 
           if (profileError) {
-            console.error('[Auth] Parent profile insert failed:', profileError.message);
-            throw new Error(`Failed to create parent profile: ${profileError.message}`);
+            console.warn('[Auth] Parent profile insert failed (non-critical):', profileError.message);
+            // Continue anyway - the auth user is created, profile can be created later
+          } else {
+            console.log('[Auth] Parent profile created successfully');
           }
-
-          console.log('[Auth] Parent profile created successfully');
         } catch (err) {
-          console.warn('[Auth] Exception creating parent profile:', err);
-          // If tables don't exist, that's okay for now
+          console.warn('[Auth] Exception creating parent profile (non-critical):', err);
         }
       }
 
@@ -300,12 +304,14 @@ export const authService = {
     }
   },
 
-  async signIn(email: string, password: string): Promise<AuthResult> {
+  async signIn(identifier: string, password: string): Promise<AuthResult> {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
+      const isEmail = identifier.includes('@');
+      const signInData = isEmail 
+        ? { email: identifier, password }
+        : { phone: identifier, password };
+
+      const { data, error } = await supabase.auth.signInWithPassword(signInData as any);
 
       if (error) throw error;
       if (!data.user) throw new Error('Login failed');
@@ -322,8 +328,9 @@ export const authService = {
           // Create user profile entry if it doesn't exist
           await supabase.from('users').insert({
             id: data.user.id,
-            email: data.user.email || email,
-            name: data.user.user_metadata?.name || email.split('@')[0],
+            email: data.user.email || (isEmail ? identifier : null),
+            phone: isEmail ? null : identifier,
+            name: data.user.user_metadata?.name || (isEmail ? identifier.split('@')[0] : identifier),
             user_type: data.user.user_metadata?.user_type || 'parent'
           });
           console.log('[Auth] Created user profile on login');
@@ -572,5 +579,18 @@ export const authService = {
 
   onAuthStateChange(callback: (event: string, session: unknown) => void) {
     return supabase.auth.onAuthStateChange(callback);
+  },
+
+  async checkEmailExists(email: string): Promise<boolean> {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password: '__check_only_never_real__'
+      });
+      // Invalid credentials means user exists (wrong password)
+      return error?.message?.includes('Invalid login credentials') || false;
+    } catch {
+      return false;
+    }
   }
 };

@@ -1,6 +1,6 @@
 import { useState, useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
-import { Mail, Lock, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Sparkles, Phone } from 'lucide-react';
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
@@ -10,7 +10,9 @@ interface LoginPageProps {
 
 export function LoginPage({ onLoginSuccess, onNavigateToSignup, onNavigateToResetPassword }: LoginPageProps) {
   const auth = useContext(AuthContext);
+  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,7 +32,8 @@ export function LoginPage({ onLoginSuccess, onNavigateToSignup, onNavigateToRese
     setError('');
     setIsLoading(true);
 
-    const result = await auth.signIn(email, password);
+    const identifier = loginMethod === 'email' ? email : phone;
+    const result = await auth.signIn(identifier, password);
 
     if (result && !result.error) {
       onLoginSuccess();
@@ -57,21 +60,61 @@ export function LoginPage({ onLoginSuccess, onNavigateToSignup, onNavigateToRese
           )}
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email Address
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                placeholder="you@example.com"
-                required
-              />
+            <label className="block text-sm font-medium text-gray-700 mb-2">Login with</label>
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setLoginMethod('email')}
+                className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                  loginMethod === 'email'
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <Mail className="w-4 h-4" />
+                Email
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoginMethod('phone')}
+                className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+                  loginMethod === 'phone'
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <Phone className="w-4 h-4" />
+                Phone
+              </button>
             </div>
+
+            {loginMethod === 'email' ? (
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  placeholder="you@example.com"
+                  required={loginMethod === 'email'}
+                />
+              </div>
+            ) : (
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  placeholder="+1 (555) 000-0000"
+                  required={loginMethod === 'phone'}
+                />
+              </div>
+            )}
           </div>
 
           <div>

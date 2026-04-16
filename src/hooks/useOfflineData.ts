@@ -13,7 +13,7 @@ interface UseOfflineDataReturn<T> {
   refetch: () => Promise<void>;
 }
 
-export function useOfflineData<T extends { id: string }>(options: UseOfflineDataOptions): UseOfflineDataReturn<T> {
+export function useOfflineData<T extends { id: string | number }>(options: UseOfflineDataOptions): UseOfflineDataReturn<T> {
   const [data, setData] = useState<T[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
