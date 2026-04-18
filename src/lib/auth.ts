@@ -29,6 +29,7 @@ interface AuthResult {
   success: boolean;
   user?: User;
   error?: string;
+  data?: any;
 }
 
 interface ProfileResult {
@@ -480,13 +481,22 @@ export const authService = {
 
   async resetPassword(email: string): Promise<AuthResult> {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      console.log('[Auth] Sending password reset for:', email);
+      console.log('[Auth] Redirect URL:', `${window.location.origin}/reset-password`);
+      
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`
       });
 
-      if (error) throw error;
-      return { success: true };
+      if (error) {
+        console.error('[Auth] Reset password error:', error);
+        throw error;
+      }
+      
+      console.log('[Auth] Reset email sent successfully');
+      return { success: true, data };
     } catch (error) {
+      console.error('[Auth] Reset password catch:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Password reset failed' };
     }
   },

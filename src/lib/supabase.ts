@@ -7,14 +7,37 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('[Supabase] Missing environment variables: VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY');
 }
 
-export const supabase = (supabaseUrl && supabaseAnonKey) 
+export const supabase = (supabaseUrl && supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey)
-  : new Proxy({} as any, {
-      get(_target, prop) {
-        console.error('[Supabase Error] Accessing supabase client without configuration:', String(prop));
-        return () => Promise.reject(new Error('Supabase is not configured properly in .env'));
+  : createMockSupabaseClient();
+
+// Mock client that returns proper error for any auth method call
+function createMockSupabaseClient() {
+  const mockAuthMethod = () => Promise.reject(new Error('Supabase is not configured - check .env file'));
+  
+  const authHandler = {
+    get(_target: any, prop: string) {
+      if (prop === 'getSession' || prop === 'onAuthStateChange' || prop === 'signUp' || 
+          prop === 'signInWithPassword' || prop === 'signOut' || prop === 'getUser' ||
+          prop === 'signInWithOAuth' || prop === 'resetPasswordForEmail' || prop === 'updateUser') {
+        console.error('[Supabase Error] Auth method called without configuration:', prop);
+        return mockAuthMethod;
       }
-    });
+      return authHandler;
+    }
+  };
+  
+  return new Proxy({} as any, {
+    get(_target, prop) {
+      if (prop === 'auth') return authHandler;
+      if (prop === 'from' || prop === 'rpc') {
+        console.error('[Supabase Error] Database method called without configuration:', String(prop));
+        return () => ({ data: null, error: new Error('Supabase not configured') });
+      }
+      return () => Promise.reject(new Error('Supabase is not configured properly in .env'));
+    }
+  });
+}
 
 export interface ChildProfile {
   id: number | string;

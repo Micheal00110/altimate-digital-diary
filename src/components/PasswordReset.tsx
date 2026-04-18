@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { authService } from '../lib/auth';
-import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Mail, ArrowLeft, CheckCircle, AlertCircle, Info } from 'lucide-react';
 
 interface PasswordResetProps {
   onBackToLogin: () => void;
@@ -22,7 +22,7 @@ export function PasswordReset({ onBackToLogin }: PasswordResetProps) {
     if (result.success) {
       setIsSubmitted(true);
     } else {
-      setError(result.error || 'Failed to send reset email');
+      setError(result.error || 'Failed to send reset email. Please check your Supabase email configuration.');
     }
 
     setIsLoading(false);
@@ -68,8 +68,14 @@ export function PasswordReset({ onBackToLogin }: PasswordResetProps) {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
-              {error}
+            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium">{error}</p>
+                <p className="text-xs mt-1 text-red-500">
+                  Check browser console for details. Ensure your Supabase project has email provider configured.
+                </p>
+              </div>
             </div>
           )}
 
@@ -99,6 +105,22 @@ export function PasswordReset({ onBackToLogin }: PasswordResetProps) {
             {isLoading ? 'Sending...' : 'Send Reset Link'}
           </button>
         </form>
+
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-start gap-2">
+            <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-blue-800">
+              <p className="font-semibold mb-1">Supabase Email Setup Required</p>
+              <p className="mb-2">To receive password reset emails, configure these in your Supabase Dashboard:</p>
+              <ol className="list-decimal list-inside space-y-1 text-xs">
+                <li>Authentication → Providers → Email → Enable</li>
+                <li>Authentication → URL Configuration → Site URL: {window.location.origin}</li>
+                <li>Authentication → Email Templates → Reset Password</li>
+                <li>Or use a test email: <a href="https://ethereal.email" target="_blank" rel="noreferrer" className="underline">ethereal.email</a></li>
+              </ol>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
