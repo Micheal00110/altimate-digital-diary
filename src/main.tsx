@@ -1,6 +1,6 @@
-import { StrictMode, Component, ReactNode } from 'react';
+import { StrictMode, Component, ReactNode, ErrorInfo } from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App.tsx';
+import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { NetworkProvider } from './contexts/NetworkContext';
 import { SyncProvider } from './contexts/SyncContext';
@@ -17,7 +17,7 @@ class ErrorBoundary extends Component<{children: ReactNode}, {hasError: boolean,
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, info: React.ErrorInfo) {
+  componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[ErrorBoundary] Caught error:', error, info);
   }
 

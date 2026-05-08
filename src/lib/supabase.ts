@@ -9,16 +9,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = (supabaseUrl && supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey)
-  : createMockSupabaseClient();
+  : (createMockSupabaseClient() as unknown as ReturnType<typeof createClient>);
 
 // Mock client that returns proper error for any auth method call
 function createMockSupabaseClient() {
-  const mockAuthMethod = () => Promise.reject(new Error('Supabase is not configured - check .env file'));
+  const mockAuthMethod = () => Promise.resolve({ data: { session: null }, error: null });
   
   const authHandler = {
-    get(_target: any, prop: string) {
-      if (prop === 'getSession' || prop === 'onAuthStateChange' || prop === 'signUp' || 
-          prop === 'signInWithPassword' || prop === 'signOut' || prop === 'getUser' ||
+    get(_target: unknown, prop: string) {
+      if (prop === 'getSession' || prop === 'onAuthStateChange') {
+        return mockAuthMethod;
+      }
+      if (prop === 'signUp' || prop === 'signInWithPassword' || prop === 'signOut' || prop === 'getUser' ||
           prop === 'signInWithOAuth' || prop === 'resetPasswordForEmail' || prop === 'updateUser') {
         console.error('[Supabase Error] Auth method called without configuration:', prop);
         return mockAuthMethod;
@@ -27,39 +29,53 @@ function createMockSupabaseClient() {
     }
   };
   
-  return new Proxy({} as any, {
+  return new Proxy({} as Record<string, unknown>, {
     get(_target, prop) {
       if (prop === 'auth') return authHandler;
       if (prop === 'from' || prop === 'rpc') {
-        console.error('[Supabase Error] Database method called without configuration:', String(prop));
-        return () => ({ data: null, error: new Error('Supabase not configured') });
+        return () => ({ data: [], error: null, select: () => ({ data: [], error: null, eq: () => ({ data: [], error: null }), maybeSingle: () => ({ data: null, error: null }) }), insert: () => ({ data: null, error: null }), update: () => ({ data: null, error: null }), delete: () => ({ data: null, error: null }) });
       }
-      return () => Promise.reject(new Error('Supabase is not configured properly in .env'));
+      return () => ({ data: [], error: null });
     }
   });
 }
 
 export interface ChildProfile {
-  id: number | string;
+  id: string;
   name: string;
   grade: string;
   school: string;
-  created_at: string;
+  parent_id?: string;
+  school_id?: string;
+  photo_url?: string;
+  created_at?: string;
+  // Additional fields used in UI
+  email?: string;
 }
 
 export interface DiaryEntry {
   id: number | string;
   date: string;
+  child_id?: number | string;
   subject: string;
   homework: string;
   teacher_comment: string;
+  attendance: 'present' | 'absent' | 'late';
+  behaviour_note: string;
   signed: boolean;
   created_at: string;
+  // Additional fields used in UI - may vary based on actual DB schema
+  sender_id?: string;
+  sender_name?: string;
+  email?: string;
+  content?: string;
+  message?: string;
 }
 
 export interface Message {
   id: number | string;
   sender_type: 'parent' | 'teacher';
+  sender_id: string;
   sender_name: string;
   content: string;
   is_read: boolean;

@@ -1,32 +1,46 @@
 {
-  "name": "vite-react-typescript-starter",
+  "name": "mychild-diary",
+  "productName": "MyChild Diary",
+  "version": "1.0.0",
+  "description": "Parent-Teacher Communication App for tracking children's school activities",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
+  "main": "electron/main.mjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "electron:dev": "vite build && electron .",
+    "electron:build": "vite build && electron-builder --mac",
+    "electron:build:dmg": "vite build && electron-builder --mac -- dmg",
+    "electron:build:pkg": "vite build && electron-builder --mac -- pkg",
+    "mas:build": "vite build && electron-builder --mas",
+    "mas:build:dir": "vite build && electron-builder --mas --dir"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.102.1",
     "autoskills": "^0.2.7",
     "dexie": "^4.4.2",
     "dotenv": "^17.4.1",
+    "framer-motion": "^12.38.0",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
     "@eslint/js": "^9.9.1",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
+    "dmg-license": "^1.0.11",
+    "electron": "^41.3.0",
+    "electron-builder": "^26.8.1",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",
@@ -37,5 +51,50 @@
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
     "vite": "^5.4.2"
+  },
+  "build": {
+    "appId": "com.mychilddiary.app",
+    "productName": "MyChild Diary",
+    "copyright": "Copyright © 2025 MyChild Diary",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*"
+    ],
+    "mac": {
+      "category": "public.app-family.education",
+      "target": [
+        "dmg",
+        "pkg"
+      ],
+      "entitlements": "build/entitlements.mac.plist",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "mas": {
+      "category": "public.app-family.education",
+      "entitlements": "build/entitlements.mas.plist",
+      "target": [
+        "dmg"
+      ]
+    },
+    "dmg": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
   }
 }

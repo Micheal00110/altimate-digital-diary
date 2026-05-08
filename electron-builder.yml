@@ -1,0 +1,53 @@
+appId: com.mychilddiary.app
+productName: MyChild Diary
+copyright: Copyright © 2025 MyChild Diary
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**/*
+  - "!node_modules/**/*"
+
+mac:
+  category: public.app-family.education
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: pkg
+      arch: [x64, arm64]
+  entitlements: build/entitlements.mac.plist
+  hardenedRuntime: true
+  gatekeeperAssess: false
+
+dmg:
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+pkg:
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+
+mas:
+  category: public.app-family.education
+  entitlements: build/entitlements.mas.plist
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+
+macAppStore:
+  category: public.app-family.education
+  target: zip
+
+publish:
+  provider: generic
+  url: https://example.com/releases
+
+electronDownload:
+  mirror: https://npmmirror.com/mirrors/electron/

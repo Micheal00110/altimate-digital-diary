@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react';
+import { useState, useContext, FormEvent, ChangeEvent } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 import { authService } from '../lib/auth';
 import { Mail, Lock, Eye, EyeOff, User, Building, GraduationCap, Phone, Wand2, Copy, Check, Sparkles } from 'lucide-react';
@@ -11,7 +11,7 @@ interface SignupPageProps {
 
 export function SignupPage({ onSignupSuccess, onNavigateToLogin }: SignupPageProps) {
   const auth = useContext(AuthContext);
-  const [userType, setUserType] = useState<'teacher' | 'parent'>('parent');
+  const [userType, setUserType] = useState<'teacher' | 'parent' | 'principal'>('parent');
   const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [formData, setFormData] = useState({
     name: '',
@@ -20,6 +20,7 @@ export function SignupPage({ onSignupSuccess, onNavigateToLogin }: SignupPagePro
     password: '',
     confirmPassword: '',
     school_name: '',
+    school_code: '', // Principal only
     class_grade: '',
     qualification: '',
     subject_specialization: '',
@@ -38,7 +39,7 @@ export function SignupPage({ onSignupSuccess, onNavigateToLogin }: SignupPagePro
   const [copiedToClipboard, setCopiedToClipboard] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
 
-  const handleChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = async (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
 
@@ -49,7 +50,7 @@ export function SignupPage({ onSignupSuccess, onNavigateToLogin }: SignupPagePro
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -77,9 +78,15 @@ export function SignupPage({ onSignupSuccess, onNavigateToLogin }: SignupPagePro
 
     const baseData = {
       name: formData.name,
-      email: loginMethod === 'email' ? formData.email : undefined,
-      phone: loginMethod === 'phone' ? formData.phone : undefined
+      email: loginMethod === 'email' ? (formData.email || '') : '',
+      phone: loginMethod === 'phone' ? formData.phone : ''
     };
+
+    if (loginMethod === 'email' && !baseData.email) {
+      setError('Email is required');
+      setIsLoading(false);
+      return;
+    }
 
     let result;
     if (userType === 'teacher') {
@@ -91,6 +98,23 @@ export function SignupPage({ onSignupSuccess, onNavigateToLogin }: SignupPagePro
         subject_specialization: formData.subject_specialization,
         years_of_experience: formData.years_of_experience,
         bio: formData.bio
+      }, formData.password);
+    } else if (userType === 'principal') {
+      // Principal signup - verify school code first
+      if (!formData.school_code) {
+        setError('School code is required for principals');
+        setIsLoading(false);
+        return;
+      }
+      if (!formData.school_name) {
+        setError('School name is required');
+        setIsLoading(false);
+        return;
+      }
+      result = await authService.signUpPrincipal({
+        ...baseData,
+        school_name: formData.school_name,
+        school_code: formData.school_code
       }, formData.password);
     } else {
       result = await authService.signUpParent({
@@ -200,6 +224,17 @@ export function SignupPage({ onSignupSuccess, onNavigateToLogin }: SignupPagePro
             }`}
           >
             I'm a Teacher
+          </button>
+          <button
+            type="button"
+            onClick={() => setUserType('principal')}
+            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+              userType === 'principal'
+                ? 'bg-slate-800 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Principal
           </button>
         </div>
 
@@ -492,6 +527,44 @@ export function SignupPage({ onSignupSuccess, onNavigateToLogin }: SignupPagePro
                   rows={2}
                 />
               </div>
+            </>
+          ) : userType === 'principal' ? (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">School Name</label>
+                  <div className="relative">
+                    <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      name="school_name"
+                      type="text"
+                      value={formData.school_name}
+                      onChange={handleChange}
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
+                      placeholder="Your School Name"
+                      required
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">School Code</label>
+                  <div className="relative">
+                    <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      name="school_code"
+                      type="text"
+                      value={formData.school_code}
+                      onChange={handleChange}
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"
+                      placeholder="Ask admin for code"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Your school administrator must provide you with the school code to register as principal.
+              </p>
             </>
           ) : (
             <>

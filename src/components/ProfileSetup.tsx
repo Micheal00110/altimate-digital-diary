@@ -1,43 +1,40 @@
-import { useState } from 'react';
+import { useState, FormEvent } from 'react';
 import { supabase, ChildProfile } from '../lib/supabase';
 import { BookOpen } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
 
 interface ProfileSetupProps {
   onProfileCreated: () => void;
   onBypass?: (profile: ChildProfile) => void;
 }
 
-export function ProfileSetup({ onProfileCreated, onBypass }: ProfileSetupProps) {
+export function ProfileSetup({ onProfileCreated }: ProfileSetupProps) {
+  const { user } = useAuth();
+  const userRole = user?.role || 'parent';
   const [name, setName] = useState('');
   const [grade, setGrade] = useState('');
   const [school, setSchool] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleBypass = () => {
-    if (onBypass) {
-      onBypass({
-        id: 'guest-' + Date.now(),
-        name: 'Guest Profile',
-        grade: 'Not Set',
-        school: 'Not Set',
-        created_at: new Date().toISOString()
-      });
-    }
-  };
+  const isTeacher = userRole === 'teacher';
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      setError('Inserting into database...');
-      console.log('[ProfileSetup] Creating profile with:', { name, grade, school });
+      console.log('[ProfileSetup] Creating profile as', userRole, ':', { name, grade, school });
+
+      const profileTable = isTeacher ? 'teacher_profiles' : 'parent_profiles';
+      const profileData = isTeacher
+        ? { user_id: user?.id, name, class_grade: grade, school_name: school }
+        : { user_id: user?.id, name, relationship_to_child: 'parent', phone_number: '' };
 
       const { data, error: supabaseError } = await supabase
-        .from('child_profiles')
-        .insert([{ name, grade, school }])
+        .from(profileTable)
+        .upsert([profileData], { onConflict: 'user_id' })
         .select()
         .maybeSingle();
 
@@ -45,48 +42,24 @@ export function ProfileSetup({ onProfileCreated, onBypass }: ProfileSetupProps) 
 
       if (supabaseError) {
         console.error('[ProfileSetup] Supabase error:', supabaseError);
-        setError(`Database Error: ${supabaseError.message}`);
+        setError(supabaseError.message);
         return;
       }
 
       if (!data) {
-        // Try fetching the last inserted profile as fallback
-        console.log('[ProfileSetup] No data returned, checking for inserted profile...');
-        const { data: fetchedData } = await supabase
-          .from('child_profiles')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (fetchedData) {
-          console.log('[ProfileSetup] Found profile via fallback:', fetchedData);
-          setError('Profile created! Accessing Dashboard...');
-          if (onBypass) {
-            onBypass(fetchedData as ChildProfile);
-          } else if (onProfileCreated) {
-            onProfileCreated();
-          }
-          return;
-        }
-
-        setError('No data returned from insert - please try again');
+        setError('Failed to create profile - please try again');
         return;
       }
 
-      setError('Profile created! Accessing Dashboard...');
-      console.log('[ProfileSetup] Calling onBypass with:', data);
+      console.log('[ProfileSetup] Profile created successfully');
 
-      // GODMODE: Direct Injection
-      if (onBypass && data) {
-        onBypass(data as ChildProfile);
-      } else if (onProfileCreated) {
+      if (onProfileCreated) {
         onProfileCreated();
       }
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[ProfileSetup] Catch error:', err);
-      setError(`Crash occurred: ${err.message || 'Unknown error'}`);
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
@@ -100,8 +73,11 @@ export function ProfileSetup({ onProfileCreated, onBypass }: ProfileSetupProps) 
           <h1 className="text-3xl font-bold text-gray-800">MyChild Diary</h1>
         </div>
 
-        <p className="text-gray-600 text-center mb-8">
-          Set up your child's profile to get started
+        <p className="text-gray-600 text-center mb-2">
+          {isTeacher ? 'Set up your teacher profile' : 'Set up your child\'s profile'}
+        </p>
+        <p className="text-gray-400 text-center text-sm mb-6">
+          Signed in as: {user?.email} ({userRole})
         </p>
 
         {error && (
@@ -114,7 +90,7 @@ export function ProfileSetup({ onProfileCreated, onBypass }: ProfileSetupProps) 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2">
-              Child's Name
+              {isTeacher ? 'Your Name' : 'Child\'s Name'}
             </label>
             <input
               type="text"
@@ -123,13 +99,13 @@ export function ProfileSetup({ onProfileCreated, onBypass }: ProfileSetupProps) 
               onChange={(e) => setName(e.target.value)}
               required
               className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-lg"
-              placeholder="Enter child's name"
+              placeholder={isTeacher ? 'Enter your name' : "Enter child's name"}
             />
           </div>
 
           <div>
             <label htmlFor="grade" className="block text-sm font-semibold text-gray-700 mb-2">
-              Grade/Class
+              {isTeacher ? 'Class/Grade You Teach' : 'Grade/Class'}
             </label>
             <input
               type="text"
@@ -138,7 +114,7 @@ export function ProfileSetup({ onProfileCreated, onBypass }: ProfileSetupProps) 
               onChange={(e) => setGrade(e.target.value)}
               required
               className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent text-lg"
-              placeholder="e.g., Grade 5"
+              placeholder={isTeacher ? 'e.g., Grade 3' : 'e.g., Grade 5'}
             />
           </div>
 
@@ -160,29 +136,11 @@ export function ProfileSetup({ onProfileCreated, onBypass }: ProfileSetupProps) 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 text-white font-semibold py-4 px-6 rounded-lg transition-colors text-lg shadow-md mb-4"
+            className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 text-white font-semibold py-4 px-6 rounded-lg transition-colors text-lg shadow-md"
           >
             {loading ? 'Creating...' : 'Continue'}
           </button>
-          
-          <button
-            type="button"
-            onClick={handleBypass}
-            className="w-full text-amber-700 hover:text-amber-900 text-sm font-medium underline transition-colors"
-          >
-            Skip Setup (Enter as Guest)
-          </button>
         </form>
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 bg-gray-900/90 text-[10px] text-gray-300 font-mono px-4 py-1 z-[100] flex justify-between items-center backdrop-blur-sm">
-        <div className="flex gap-4">
-           <span>DB_TARGET: <span className="text-blue-400">child_profiles</span></span>
-           <span>STATUS: <span className="text-amber-400">{loading ? 'PROCESSING' : 'IDLE'}</span></span>
-        </div>
-        <div className="truncate max-w-[50%] text-right">
-          LAST_ACT: <span className="text-blue-300">{error || 'READY'}</span>
-        </div>
       </div>
     </div>
   );

@@ -30,8 +30,9 @@ if (!rootElement) {
       </StrictMode>
     );
     console.log('[DEBUG] Render called successfully');
-  } catch (error: any) {
-    console.error('[DEBUG] Render failed:', error);
-    rootElement.innerHTML = `<div style="padding: 40px; color: red;">❌ React Error: ${error?.message || 'Unknown error'}</div>`;
-  }
+   } catch (error: unknown) {
+     console.error('[DEBUG] Render failed:', error);
+     const message = error instanceof Error ? error.message : 'Unknown error';
+     rootElement.innerHTML = `<div style="padding: 40px; color: red;">❌ React Error: ${message}</div>`;
+   }
 }

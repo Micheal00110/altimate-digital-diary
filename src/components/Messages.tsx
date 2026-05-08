@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, FormEvent } from 'react';
 import { supabase, Message } from '../lib/supabase';
 import { MessageCircle, Send, User, GraduationCap, ArrowLeft } from 'lucide-react';
 
@@ -33,7 +33,7 @@ export function Messages({ onBack }: MessagesProps) {
     loadMessages();
   }, [loadMessages]);
 
-  const sendMessage = async (e: React.FormEvent) => {
+  const sendMessage = async (e: FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 

@@ -3,13 +3,14 @@ import { supabase } from '../lib/supabase';
 import { authService } from '../lib/auth';
 import type { Session, User } from '@supabase/supabase-js';
 
-export type UserRole = 'teacher' | 'parent' | 'admin';
+export type UserRole = 'teacher' | 'parent' | 'admin' | 'super_admin' | 'principal';
 
 interface AuthUser {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  school_id?: string;
   profile?: Record<string, unknown>;
 }
 
@@ -104,6 +105,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         email: sessionUser.email || '',
         name: userData.name || '',
         role,
+        school_id: userData.school_id,
         profile
       };
     } catch (err) {
@@ -125,6 +127,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       email: 'guest@example.com',
       name: 'Guest ' + (role.charAt(0).toUpperCase() + role.slice(1)),
       role: role,
+      school_id: role === 'admin' ? 'demo-school-id' : undefined,
       profile: { guest: true }
     };
     
@@ -139,14 +142,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Check for guest login first (before any async ops)
     const savedGuest = localStorage.getItem('diary_guest_user');
     if (savedGuest) {
-      try {
-        const guestData = JSON.parse(savedGuest);
-        setUser(guestData);
-        setIsLoading(false);
-        return; // Skip server check if guest is active
-      } catch (e) {
-        localStorage.removeItem('diary_guest_user');
-      }
+       try {
+         const guestData = JSON.parse(savedGuest);
+         setUser(guestData);
+         setIsLoading(false);
+         return; // Skip server check if guest is active
+       } catch (e: unknown) {
+         if (e instanceof Error) {
+           console.warn('[AuthContext] Invalid guest data:', e.message);
+         }
+         localStorage.removeItem('diary_guest_user');
+       }
     }
 
     // Add timeout to prevent infinite loading
@@ -159,18 +165,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const initAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          console.warn('[AuthContext] Session error:', sessionError.message);
+        }
         if (!isMounted) return;
 
+        const session = data?.session;
         setSession(session);
         if (session?.user) {
           const userProfile = await loadUserProfile(session.user);
           if (isMounted) {
             setUser(userProfile);
           }
+        } else {
+          if (isMounted) setUser(null);
         }
       } catch (err) {
         console.error('[AuthContext] Session check failed:', err);
+        if (isMounted) setUser(null);
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -181,7 +194,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event: string, session: any) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event: string, session: Session | null) => {
       if (!isMounted) return;
       try {
         setSession(session);

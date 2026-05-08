@@ -1,36 +1,35 @@
-import { useState, useEffect } from 'react';
-import { supabase, DiaryEntry } from '../lib/supabase';
+import { useState, useEffect, useCallback } from 'react';
+import { supabase, DiaryEntry, ChildProfile } from '../lib/supabase';
 import { ArrowLeft, CheckCircle, Circle, Calendar } from 'lucide-react';
 
 interface DiaryHistoryProps {
   onBack: () => void;
   onSelectDate: (date: string) => void;
+  student: ChildProfile;
 }
 
-export function DiaryHistory({ onBack, onSelectDate }: DiaryHistoryProps) {
+export function DiaryHistory({ onBack, onSelectDate, student }: DiaryHistoryProps) {
   const [entries, setEntries] = useState<DiaryEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadEntries();
-  }, []);
-
-  const loadEntries = async () => {
+  const loadEntries = useCallback(async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('diary_entries')
         .select('*')
+        .eq('child_id', student.id)
         .order('date', { ascending: false });
 
       if (error) throw error;
-      setEntries(data || []);
-    } catch (error) {
-      console.error('Error loading entries:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (data) setEntries(data as DiaryEntry[]);
+    } catch (error) { console.error('Error fetching entries:', error); }
+    setLoading(false);
+  }, [student.id]);
+
+  useEffect(() => {
+    loadEntries();
+  }, [loadEntries]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);

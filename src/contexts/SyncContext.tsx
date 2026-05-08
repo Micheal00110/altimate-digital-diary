@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import { syncQueue } from '../lib/syncQueue';
+import { syncEngine } from '../lib/syncEngine';
 import { useNetwork } from './NetworkContext';
-import type { SyncQueueItem } from '../lib/indexedDb';
 
 export interface SyncConflict {
   id: string;
@@ -32,7 +32,7 @@ interface SyncProviderProps {
 }
 
 export function SyncProvider({ children }: SyncProviderProps) {
-  const { isOnline } = useNetwork();
+  const { isOnline, setSyncing, setLastSyncTime: setNetworkLastSync, setPendingChanges } = useNetwork();
   const [isSyncing, setIsSyncing] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [conflicts, setConflicts] = useState<SyncConflict[]>([]);
@@ -42,55 +42,36 @@ export function SyncProvider({ children }: SyncProviderProps) {
   const updatePendingCount = useCallback(async () => {
     const count = await syncQueue.getPendingCount();
     setPendingCount(count);
-  }, []);
+    setPendingChanges(count);
+  }, [setPendingChanges]);
 
   useEffect(() => {
     updatePendingCount();
+    // Refresh count periodically
+    const interval = setInterval(updatePendingCount, 5000);
+    return () => clearInterval(interval);
   }, [updatePendingCount]);
 
   const syncNow = useCallback(async () => {
     if (!isOnline || isSyncing) return;
     
     setIsSyncing(true);
+    setSyncing(true);
     setError(null);
 
     try {
-      const pendingItems = await syncQueue.getPendingItems();
+      await syncEngine.processQueue();
       
-      for (const item of pendingItems) {
-        await syncQueue.markAsSyncing(item.id);
-        
-        try {
-          await processSyncItem(item);
-          await syncQueue.markAsSynced(item.id);
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : 'Sync failed';
-          await syncQueue.markAsFailed(item.id, errorMessage);
-        }
-      }
-      
-      await syncQueue.clearSynced();
       setLastSyncTime(Date.now());
+      setNetworkLastSync(Date.now());
       await updatePendingCount();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sync failed');
     } finally {
       setIsSyncing(false);
+      setSyncing(false);
     }
-  }, [isOnline, isSyncing, updatePendingCount]);
-
-  const processSyncItem = async (item: SyncQueueItem): Promise<void> => {
-    const data = item.data;
-    const operation = item.operation;
-    
-    if (operation === 'DELETE') {
-      console.log(`Deleting ${item.table}:`, data.id);
-    } else if (operation === 'CREATE') {
-      console.log(`Creating ${item.table}:`, data);
-    } else if (operation === 'UPDATE') {
-      console.log(`Updating ${item.table}:`, data);
-    }
-  };
+  }, [isOnline, isSyncing, setSyncing, setNetworkLastSync, updatePendingCount]);
 
   const resolveConflict = useCallback(async (conflictId: string) => {
     setConflicts(prev => prev.filter(c => c.id !== conflictId));
@@ -99,9 +80,13 @@ export function SyncProvider({ children }: SyncProviderProps) {
 
   const clearError = useCallback(() => setError(null), []);
 
+  // Auto-sync when online and has pending items
   useEffect(() => {
     if (isOnline && pendingCount > 0 && !isSyncing) {
-      syncNow();
+      const timer = setTimeout(() => {
+        syncNow();
+      }, 2000); // Small delay to batch changes
+      return () => clearTimeout(timer);
     }
   }, [isOnline, pendingCount, isSyncing, syncNow]);
 
